@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <?!= include('Styles') ?>
+</head>
+<body>
+<div class="grid">
+  <div class="full">
+    <label>Enquiry ID <span class="req">*</span></label>
+    <input id="enqId" list="enqList" placeholder="Type or pick e.g. ENQ-001" autocomplete="off">
+    <datalist id="enqList"></datalist>
+    <div class="hint" id="info"></div>
+  </div>
+  <div><label>Bill No. <span class="req">*</span></label><input id="billNo"></div>
+  <div><label>Bill Amount (₹) <span class="req">*</span></label><input id="billAmt" type="number" min="0" step="0.01"></div>
+  <div class="full"><label>Bill Image</label>
+    <input id="file" type="file" accept="image/*,application/pdf">
+    <div class="hint">Image or PDF. Saved to the Drive bills folder.</div></div>
+</div>
+<div id="msg" class="msg"></div>
+<div class="actions">
+  <button class="btn btn-light" onclick="google.script.host.close()">Cancel</button>
+  <button class="btn btn-primary" id="btn" onclick="submitBill()">Submit</button>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+let RID = uid();
+['input', 'change'].forEach(ev => document.addEventListener(ev, () => { RID = uid(); }));
+  let ENQ = {}, MAXMB = 5, BILLREQ = { billNo: true, billAmount: true, billImage: false };
+  function show(text, ok) { const m = $('msg'); m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err'); }
+
+  // Puts or removes the red * next to a field label
+  function star(id, on) {
+    const el = $(id);
+    if (!el) return;
+    const lab = el.parentElement.querySelector('label');
+    if (!lab) return;
+    const old = lab.querySelector('.req');
+    if (old) old.remove();
+    if (on) { const s = document.createElement('span'); s.className = 'req'; s.textContent = ' *'; lab.appendChild(s); }
+  }
+
+  google.script.run.withSuccessHandler(d => {
+    MAXMB = d.maxFileMB || 5;
+    if (d.required && d.required.bill) BILLREQ = d.required.bill;
+    star('billNo', !!BILLREQ.billNo); star('billAmt', !!BILLREQ.billAmount); star('file', !!BILLREQ.billImage);
+    d.enquiries.forEach(e => {
+      ENQ[e.id.toUpperCase()] = e;
+      const o = document.createElement('option'); o.value = e.id; o.label = e.customer; o.textContent = e.customer;
+      $('enqList').appendChild(o);
+    });
+  }).withFailureHandler(e => show(e.message, false)).getBillFormData();
+
+  $('enqId').addEventListener('input', () => {
+    const e = ENQ[$('enqId').value.trim().toUpperCase()];
+    $('info').textContent = e ? (e.customer + (e.verified ? '  |  Bill already uploaded (Bill No. ' + e.billNo + '). Submitting will overwrite it.' : '')) : '';
+  });
+
+  function readB64(file) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result).split(',')[1]);
+      r.onerror = () => rej(new Error('Could not read file.'));
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function submitBill() {
+    const e = ENQ[$('enqId').value.trim().toUpperCase()];
+    const file = $('file').files[0];
+    if (!e) { show('Please select a valid Enquiry ID.', false); return; }
+    if (BILLREQ.billNo && !$('billNo').value.trim()) { show('Bill No. is required.', false); return; }
+    if (BILLREQ.billAmount && $('billAmt').value === '') { show('Bill Amount is required.', false); return; }
+    if (BILLREQ.billImage && !file) { show('Bill Image is required.', false); return; }
+    if (!$('billNo').value.trim() && $('billAmt').value === '' && !file) { show('Enter at least a Bill No., Bill Amount or Bill Image.', false); return; }
+    if (file && file.size > MAXMB * 1024 * 1024) { show('File is larger than ' + MAXMB + ' MB.', false); return; }
+    $('btn').disabled = true; show('Saving...', true);
+    try {
+      const b64 = file ? await readB64(file) : '';
+      google.script.run
+        .withSuccessHandler(() => { show('Bill saved to Enquiry Tracker. Won Verification: Verified.', true); setTimeout(() => google.script.host.close(), 1400); })
+        .withFailureHandler(err => { $('btn').disabled = false; show(err.message, false); })
+        .saveBill({ enquiryId: e.id, billNo: $('billNo').value, billAmount: $('billAmt').value,
+                    fileName: file ? file.name : '', mimeType: file ? (file.type || 'application/octet-stream') : '', base64: b64, requestId: RID });
+    } catch (err) { $('btn').disabled = false; show(err.message, false); }
+  }
+</script>
+</body>
+</html>
