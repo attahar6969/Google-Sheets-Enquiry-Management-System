@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <?!= include('Styles') ?>
+</head>
+<body>
+<form id="f" novalidate>
+  <div class="grid">
+
+    <div><label>Enquiry No.</label><input id="enqNo" readonly value="Loading..."></div>
+    <div><label>Date of Enquiry <span class="req">*</span></label><input type="date" id="date"></div>
+
+    <div><label>Customer Name <span class="req">*</span></label><input id="customer"></div>
+    <div><label>Contact Person Name</label><input id="contact"></div>
+
+    <div><label>Phone No. <span class="req">*</span></label><input id="phone" type="tel" inputmode="numeric" maxlength="10" pattern="[6-9][0-9]{9}" title="10 digits, between 6000000000 and 9999999999" placeholder="10-digit mobile no."></div>
+    <div><label>Mail ID</label><input id="mail" type="email"></div>
+
+    <div><label>Category <span class="req">*</span></label><select id="category"></select></div>
+    <div><label>Source <span class="req">*</span></label><select id="source"></select></div>
+
+    <div class="full"><label>Quotation Link <span class="req">*</span></label><input id="qlink" type="url" placeholder="https://..."></div>
+
+    <div><label>Quotation Amount (₹) <span class="req">*</span></label><input id="amount" type="number" min="0.01" step="0.01" placeholder="0.00"></div>
+    <div><label>Representative <span class="req">*</span></label><select id="rep"></select></div>
+
+    <div><label>Status <span class="req">*</span></label><select id="status"></select></div>
+    <div><label>Priority <span class="req">*</span></label><select id="priority"></select></div>
+
+    <div><label>Follow-Up Date</label><input type="date" id="followUp"></div>
+    <div><label>Expected Closing Date</label><input type="date" id="expected"></div>
+
+    <div class="full">
+      <label>Remarks</label>
+      <textarea
+        id="remarks"
+        name="remarks"
+        rows="3"
+        placeholder="Enter enquiry remarks..."
+        style="width:100%; box-sizing:border-box; resize:vertical;"
+      ></textarea>
+    </div>
+
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <div class="actions">
+    <button type="button" class="btn btn-light" onclick="google.script.host.close()">Cancel</button>
+    <button type="submit" class="btn btn-primary" id="submitBtn">Submit</button>
+  </div>
+</form>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+let RID = uid();
+['input', 'change'].forEach(ev => $('f').addEventListener(ev, () => { RID = uid(); }));
+
+  // field key (from Settings > Required Fields) -> element id
+  const REQ_IDS = { date: 'date', customer: 'customer', contact: 'contact', phone: 'phone', mail: 'mail',
+    category: 'category', source: 'source', qlink: 'qlink', amount: 'amount', rep: 'rep', status: 'status',
+    priority: 'priority', followUp: 'followUp', expected: 'expected', remarks: 'remarks' };
+
+    let ENQ_REQ = {};
+
+  function applyRequired(req) {
+    ENQ_REQ = req || {};
+    Object.keys(REQ_IDS).forEach(k => {
+      const el = $(REQ_IDS[k]);
+      if (!el) return;
+      const on = !!req[k];
+      el.required = on;
+      const lab = el.parentElement.querySelector('label');
+      if (!lab) return;
+      const old = lab.querySelector('.req');
+      if (old) old.remove();
+      if (on) {
+        const s = document.createElement('span');
+        s.className = 'req';
+        s.textContent = ' *';
+        lab.appendChild(s);
+      }
+    });
+    updateQlink();
+  }
+
+  
+// Sources for which Quotation Link is optional (lowercase)
+const LINK_OPTIONAL_SOURCES = ['by meeting', 'just dail', 'just dial', 'india mart', 'cold call'];
+
+function isLinkOptional() {
+  return LINK_OPTIONAL_SOURCES.indexOf($('source').value.trim().toLowerCase()) > -1;
+}
+
+  function updateQlink() {
+    const on = !!ENQ_REQ.qlink && !isLinkOptional();
+    const el = $('qlink');
+    el.required = on;
+    const lab = el.parentElement.querySelector('label');
+    const old = lab.querySelector('.req');
+    if (old) old.remove();
+    if (on) {
+      const s = document.createElement('span');
+      s.className = 'req';
+      s.textContent = ' *';
+      lab.appendChild(s);
+    }
+  }
+  $('source').addEventListener('change', updateQlink);
+
+  function fill(sel, arr) {
+    sel.innerHTML = '';
+    const o = document.createElement('option');
+    o.value = '';
+    o.textContent = '-- Select --';
+    sel.appendChild(o);
+
+    arr.forEach(v => {
+      const x = document.createElement('option');
+      x.value = v;
+      x.textContent = v;
+      sel.appendChild(x);
+    });
+  }
+
+  function show(text, ok) {
+    const m = $('msg');
+    m.textContent = text;
+    m.className = 'msg ' + (ok ? 'ok' : 'err');
+  }
+
+  google.script.run
+    .withSuccessHandler(init)
+    .withFailureHandler(e => show(e.message, false))
+    .getNewEnquiryData();
+
+  function init(d) {
+    $('enqNo').value = d.nextId + '  (final number assigned on save)';
+    $('date').value = d.today;
+
+    fill($('category'), d.categories);
+    fill($('source'), d.sources);
+    fill($('rep'), d.reps);
+    fill($('status'), d.statuses);
+    fill($('priority'), d.priorities);
+
+    if (d.required && d.required.enq) applyRequired(d.required.enq);
+  }
+
+  // Keep digits only in phone box
+  $('phone').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 10);
+  });
+
+  $('f').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+
+    // Phone format is checked only when something is typed (empty is allowed unless Phone is required)
+    if ($('phone').value && !/^[6-9][0-9]{9}$/.test($('phone').value)) {
+      show('Phone No. must be exactly 10 digits, between 6000000000 and 9999999999.', false);
+      return;
+    }
+
+    if (!$('f').reportValidity()) return;
+
+    const data = {
+      date: $('date').value,
+      customer: $('customer').value,
+      contact: $('contact').value,
+      phone: $('phone').value,
+      mail: $('mail').value,
+      category: $('category').value,
+      quotationLink: $('qlink').value,
+      amount: $('amount').value,
+      source: $('source').value,
+      rep: $('rep').value,
+      status: $('status').value,
+      priority: $('priority').value,
+      followUp: $('followUp').value,
+      expected: $('expected').value,
+      remarks: $('remarks').value,
+      requestId: RID
+    };
+
+    $('submitBtn').disabled = true;
+    show('Saving...', true);
+
+    google.script.run
+      .withSuccessHandler(r => {
+        show('Saved as ' + r.id + '. Closing...', true);
+        setTimeout(() => google.script.host.close(), 1200);
+      })
+      .withFailureHandler(e => {
+        $('submitBtn').disabled = false;
+        show(e.message, false);
+      })
+      .saveNewEnquiry(data);
+  });
+</script>
+</body>
+</html>
