@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Roboto, Arial, sans-serif; font-size: 13px; color: #202124; margin: 0; padding: 0; }
+  .wrap { display: flex; height: 100vh; }
+  .side { width: 190px; background: #f1f3f9; padding: 12px 8px; flex-shrink: 0; }
+  .side button { display: block; width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 4px; border: 0; border-radius: 6px;
+    background: transparent; font-size: 13px; cursor: pointer; color: #3c4043; }
+  .side button:hover { background: #e3e8f4; }
+  .side button.on { background: #1a4e8a; color: #fff; font-weight: 600; }
+  .main { flex: 1; padding: 16px 20px; overflow-y: auto; }
+  h3 { margin: 0 0 4px; color: #1a4e8a; font-size: 16px; }
+  .sub { color: #5f6368; margin-bottom: 14px; }
+  .pane { display: none; }
+  .pane.on { display: block; }
+  label.l { display: block; font-weight: 600; font-size: 12px; margin: 12px 0 3px; color: #3c4043; }
+  input[type=text], input[type=number], select, textarea { width: 100%; padding: 7px 8px; border: 1px solid #c4c7c5; border-radius: 6px; font-size: 13px; font-family: inherit; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid #1a73e8; border-color: #1a73e8; }
+  input[readonly] { background: #f1f3f4; color: #5f6368; }
+  .hint { font-size: 11.5px; color: #5f6368; margin-top: 3px; }
+  .btn { padding: 8px 16px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; margin-right: 8px; }
+  .btn-p { background: #1a4e8a; color: #fff; }
+  .btn-l { background: #e8eaed; color: #3c4043; }
+  .btn-r { background: #fce8e6; color: #b3261e; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .bar { margin-top: 18px; padding-top: 12px; border-top: 1px solid #e0e3e7; }
+  .card { border: 1px solid #dadce0; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+  .sw { display: flex; align-items: flex-start; gap: 12px; }
+  .sw input { margin-top: 3px; width: 18px; height: 18px; flex-shrink: 0; }
+  .sw b { display: block; font-size: 14px; }
+  .state { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; color: #fff; margin-left: 8px; vertical-align: middle; }
+  .on-c { background: #1e8e3e; } .off-c { background: #c5392b; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip { padding: 5px 12px; border: 1px solid #c4c7c5; border-radius: 16px; background: #fff; cursor: pointer; font-size: 12.5px; }
+  .chip.on { background: #e8f0fe; border-color: #1a4e8a; color: #1a4e8a; font-weight: 600; }
+  .li { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .li input { flex: 1; }
+  .use { width: 70px; font-size: 11.5px; color: #5f6368; text-align: center; }
+  .ic { border: 1px solid #c4c7c5; background: #fff; border-radius: 6px; width: 30px; height: 30px; cursor: pointer; font-size: 12px; }
+  .ic.del { color: #b3261e; width: 52px; }
+  .ic.sure { background: #b3261e; color: #fff; border-color: #b3261e; }
+  .lock { width: 52px; text-align: center; }
+  .add { display: flex; gap: 6px; margin-top: 10px; }
+  .add input { flex: 1; }
+  .checks label { display: inline-flex; align-items: center; gap: 6px; margin: 4px 16px 4px 0; }
+  .rq { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 20px; margin-top: 8px; }
+  .rqi { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f1f3f4; cursor: pointer; }
+  .rqi input { width: 16px; height: 16px; }
+  .lk { font-size: 11px; color: #5f6368; margin-left: auto; }
+
+  /* ---- popup message (always visible, fixed on screen) ---- */
+  #toast { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); min-width: 280px; max-width: 85%;
+    padding: 11px 16px; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.28); font-size: 13px; font-weight: 600;
+    display: none; align-items: center; gap: 10px; z-index: 1000; }
+  #toast.show { display: flex; }
+  #toast.busy { background: #e8f0fe; color: #1a4e8a; border: 1px solid #aecbfa; }
+  #toast.ok   { background: #e6f4ea; color: #137333; border: 1px solid #a8dab5; }
+  #toast.err  { background: #fce8e6; color: #b3261e; border: 1px solid #f5b5af; }
+  #toast.warn { background: #fef7e0; color: #7a5b00; border: 1px solid #f9d97a; }
+  #toastX { margin-left: auto; border: 0; background: transparent; font-size: 15px; cursor: pointer; color: inherit; }
+  .spin { width: 14px; height: 14px; border: 2px solid #aecbfa; border-top-color: #1a4e8a; border-radius: 50%; animation: sp .8s linear infinite; flex-shrink: 0; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="toast"><span id="toastIcon"></span><span id="toastText"></span><button id="toastX" onclick="hideToast()">&#10005;</button></div>
+
+<div class="wrap">
+  <div class="side" id="side">
+    <button data-p="dd" class="on">Dropdown Lists</button>
+    <button data-p="req">Required Fields</button>
+    <button data-p="st">Status Rules</button>
+    <button data-p="bill">Bill Upload</button>
+    <button data-p="adm">Admins</button>
+    <button data-p="web">Web App &amp; Security</button>
+  </div>
+
+  <div class="main">
+
+    <!-- DROPDOWN LISTS -->
+    <div class="pane on" id="p-dd">
+      <h3>Dropdown Lists</h3>
+      <div class="sub">Add, rename, reorder or delete values. Renaming a value also updates existing enquiries and history. Won / Lost / Closed are locked.</div>
+      <div class="chips" id="chips"></div>
+      <div id="list"></div>
+      <div class="add"><input type="text" id="newVal" placeholder="Add a new value and press Enter"><button class="btn btn-l" onclick="addVal()">Add</button></div>
+      <div class="bar"><button class="btn btn-p" onclick="saveDd(this)">Save all dropdown lists</button></div>
+    </div>
+
+    <!-- REQUIRED FIELDS -->
+    <div class="pane" id="p-req">
+      <h3>Required Fields</h3>
+      <div class="sub">Tick a field to make it required, untick to make it optional. Forms show a red * on required fields and the server enforces the same rules.</div>
+      <div id="reqBox"></div>
+      <div class="bar"><button class="btn btn-p" onclick="saveReq(this)">Save required fields</button></div>
+    </div>
+
+    <!-- STATUS RULES -->
+    <div class="pane" id="p-st">
+      <h3>Status Rules</h3>
+      <div class="sub">Controls what must happen before a status can be set.</div>
+
+      <div class="card">
+        <div class="sw">
+          <input type="checkbox" id="wv" onchange="wvState()">
+          <div>
+            <b>Won Verification <span class="state" id="wvState"></span></b>
+            <div class="hint">ON: an enquiry cannot be marked Won until Bill Details are submitted. The Bill pop-up opens when Won is selected.<br>
+            OFF: Won can be selected directly with no bill. Dashboard Won sales then fall back to the Quotation Amount.</div>
+          </div>
+        </div>
+        <div class="sw" style="margin-top:12px">
+          <input type="checkbox" id="wvReset">
+          <div>
+            <b>Reset verification when an enquiry leaves Won</b>
+            <div class="hint">If an admin moves an enquiry from Won to another status, clear its Verified flag so a bill must be submitted again before it can be Won again.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <b>Admin-only statuses</b>
+        <div class="hint">Only admins can set these statuses, and only admins can update an enquiry that is already in one of them.</div>
+        <div class="checks" id="adminSt" style="margin-top:8px"></div>
+      </div>
+      <div class="bar"><button class="btn btn-p" onclick="saveGeneral(this)">Save settings</button></div>
+    </div>
+
+    <!-- BILL UPLOAD -->
+    <div class="pane" id="p-bill">
+      <h3>Bill Upload</h3>
+      <div class="sub">Where bills are stored and what is accepted.</div>
+      <label class="l">Drive folder name</label>
+      <input type="text" id="folder">
+      <div class="hint">Changing the name renames the existing folder, so old bills stay together.</div>
+      <label class="l">Maximum file size (MB, 1 to 20)</label>
+      <input type="number" id="maxmb" min="1" max="20" step="1">
+      <label class="l">Sharing of uploaded bills</label>
+      <select id="share">
+        <option value="anyone">Anyone with the link can view</option>
+        <option value="private">Private (only people with Drive access)</option>
+      </select>
+      <div class="bar"><button class="btn btn-p" onclick="saveGeneral(this)">Save settings</button></div>
+    </div>
+
+    <!-- ADMINS -->
+    <div class="pane" id="p-adm">
+      <h3>Admins</h3>
+      <div class="sub">Admins can set admin-only statuses such as Closed. The owner is always an admin.</div>
+      <label class="l">Owner</label>
+      <input type="text" id="owner" readonly>
+      <label class="l">Admin email addresses (one per line or separated by commas)</label>
+      <textarea id="admins" rows="6"></textarea>
+      <div class="bar"><button class="btn btn-p" onclick="saveAdm(this)">Save admins</button></div>
+    </div>
+
+    <!-- WEB APP -->
+    <div class="pane" id="p-web">
+      <h3>Web App &amp; Security</h3>
+      <div class="sub">The Web App lets other users add data through the forms while the sheets stay protected.</div>
+      <label class="l">Web App URL (ends with /exec)</label>
+      <input type="text" id="webUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <div class="hint">Saved only if a connection test succeeds. Leave empty and save to remove it.</div>
+      <div style="margin-top:10px">
+        <button class="btn btn-p" onclick="saveWeb(this)">Save &amp; test</button>
+        <button class="btn btn-l" onclick="testWeb(this)">Test connection</button>
+      </div>
+      <div class="bar">
+        <button class="btn btn-l" onclick="doProtect(this)">Re-apply sheet protection</button>
+        <button class="btn btn-l" onclick="doRefresh(this)">Refresh all sheets</button>
+        <button class="btn btn-r" onclick="doKey(this)">Regenerate API key</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const KEYS = ['category', 'source', 'rep', 'status', 'priority'];
+  let D = null, LISTS = {}, cur = 'category', toastTimer = null;
+
+  /* Required Fields screen definition: [key, label, locked?] */
+  const REQ_DEFS = {
+    enq: { title: 'New Enquiry', note: 'Phone No. is still checked for the 10-digit format whenever something is typed.', fields: [
+      ['date', 'Date of Enquiry', 1], ['customer', 'Customer Name', 1], ['contact', 'Contact Person Name'], ['phone', 'Phone No.'],
+      ['mail', 'Mail ID'], ['category', 'Category'], ['source', 'Source'], ['qlink', 'Quotation Link'],
+      ['amount', 'Quotation Amount (₹)'], ['rep', 'Representative'], ['status', 'Status', 1], ['priority', 'Priority'],
+      ['followUp', 'Follow-Up Date'], ['expected', 'Expected Closing Date'], ['remarks', 'Remarks'] ] },
+    fu: { title: 'Follow-Up Update', note: 'Follow-Up Date, when required, is not needed if the status is Won / Lost.', fields: [
+      ['enqId', 'Enquiry ID', 1], ['category', 'Category'], ['rep', 'Representative'], ['status', 'Status', 1],
+      ['followUp', 'Follow-Up Date'], ['expected', 'Expected Closing Date'], ['remark', 'Latest Remark'] ] },
+    bill: { title: 'Bill Details (Upload Bill and the Won pop-up)', note: 'At least one of Bill No., Bill Amount or Bill Image must always be given.', fields: [
+      ['enqId', 'Enquiry ID', 1], ['billNo', 'Bill No.'], ['billAmount', 'Bill Amount (₹)'], ['billImage', 'Bill Image'] ] }
+  };
+
+  /* ---------- popup message ---------- */
+  function toast(text, kind) {
+    clearTimeout(toastTimer);
+    const t = $('toast');
+    t.className = 'show ' + kind;
+    $('toastIcon').innerHTML = kind === 'busy' ? '<span class="spin"></span>' : kind === 'ok' ? '&#10004;' : '&#9888;';
+    $('toastText').textContent = text;
+    $('toastX').style.display = kind === 'busy' ? 'none' : 'block';
+    if (kind === 'ok') toastTimer = setTimeout(hideToast, 4000);
+    if (kind === 'warn') toastTimer = setTimeout(hideToast, 9000);
+  }
+  function hideToast() { clearTimeout(toastTimer); $('toast').className = ''; }
+
+  /* Runs a server function: button shows "Please wait...", popup shows progress, then result. */
+  function run(btn, busyText, fn, args, onOk) {
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Please wait...';
+    toast(busyText, 'busy');
+    const done = () => { btn.disabled = false; btn.textContent = label; };
+    const runner = google.script.run
+      .withSuccessHandler(r => { done(); let t; try { t = onOk(r); } catch (e) { t = 'Done.'; } toast(t, 'ok'); })
+      .withFailureHandler(e => { done(); toast((e && e.message) || String(e), 'err'); });
+    runner[fn].apply(runner, args || []);
+  }
+
+  /* ---------- tabs ---------- */
+  document.querySelectorAll('#side button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('#side button').forEach(x => x.classList.remove('on'));
+    document.querySelectorAll('.pane').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); $('p-' + b.dataset.p).classList.add('on'); hideToast();
+  });
+
+  /* ---------- load ---------- */
+  function load(silent) {
+    if (!silent) toast('Loading settings...', 'busy');
+    google.script.run
+      .withSuccessHandler(d => { D = d; init(); if (!silent) hideToast(); })
+      .withFailureHandler(e => toast((e && e.message) || String(e), 'err'))
+      .getSettingsData();
+  }
+  function init() {
+    KEYS.forEach(k => { LISTS[k] = D.lists[k].map(n => ({ orig: n, name: n, sure: false })); });
+    const s = D.settings;
+    $('wv').checked = !!s.wonVerification; wvState();
+    $('wvReset').checked = !!s.resetVerificationOnReopen;
+    $('folder').value = s.billFolderName; $('maxmb').value = s.maxFileMB; $('share').value = s.billSharing;
+    $('owner').value = D.owner || '(not detected)';
+    $('admins').value = D.admins.join('\n');
+    $('webUrl').value = D.webAppUrl;
+    renderAdminSt(); renderChips(); renderList(); renderReq();
+  }
+  function wvState() {
+    const on = $('wv').checked, e = $('wvState');
+    e.textContent = on ? 'ON' : 'OFF'; e.className = 'state ' + (on ? 'on-c' : 'off-c');
+  }
+  function renderAdminSt() {
+    const sel = D.settings.adminOnlyStatuses.map(x => x.toLowerCase());
+    $('adminSt').innerHTML = D.lists.status.map(s =>
+      '<label><input type="checkbox" value="' + esc(s) + '"' + (sel.indexOf(s.toLowerCase()) > -1 ? ' checked' : '') + '> ' + esc(s) + '</label>').join('') ||
+      '<span class="hint">No statuses yet.</span>';
+  }
+
+  /* ---------- required fields ---------- */
+  function renderReq() {
+    const R = D.settings.required;
+    let h = '';
+    Object.keys(REQ_DEFS).forEach(f => {
+      const def = REQ_DEFS[f];
+      h += '<div class="card"><b>' + esc(def.title) + '</b><div class="hint">' + esc(def.note) + '</div><div class="rq">';
+      def.fields.forEach(x => {
+        const k = x[0], lock = !!x[2], on = lock ? true : !!(R[f] && R[f][k]);
+        h += '<label class="rqi"><input type="checkbox" id="rq-' + f + '-' + k + '"' + (on ? ' checked' : '') + (lock ? ' disabled' : '') + '> ' +
+             esc(x[1]) + (lock ? '<span class="lk">&#128274; always required</span>' : '') + '</label>';
+      });
+      h += '</div></div>';
+    });
+    $('reqBox').innerHTML = h;
+  }
+  function saveReq(btn) {
+    const p = {};
+    Object.keys(REQ_DEFS).forEach(f => {
+      p[f] = {};
+      REQ_DEFS[f].fields.forEach(x => { if (!x[2]) p[f][x[0]] = $('rq-' + f + '-' + x[0]).checked; });
+    });
+    run(btn, 'Saving required fields...', 'saveRequiredFields', [p], r => {
+      D.settings.required = r;
+      return 'Required fields saved. The forms use the new rules from the next time they are opened.';
+    });
+  }
+
+  /* ---------- dropdown lists ---------- */
+  function renderChips() {
+    $('chips').innerHTML = KEYS.map(k => '<span class="chip' + (k === cur ? ' on' : '') + '" onclick="pick(\'' + k + '\')">' +
+      esc(D.labels[k]) + ' (' + LISTS[k].length + ')</span>').join('');
+  }
+  function pick(k) { cur = k; hideToast(); renderChips(); renderList(); }
+  function isLocked(k, it) { return k === 'status' && it.orig && D.locked.indexOf(it.orig.toLowerCase()) > -1; }
+  function renderList() {
+    const k = cur, usage = D.usage[k] || {};
+    let h = '';
+    LISTS[k].forEach((it, i) => {
+      const lock = isLocked(k, it), n = it.orig ? (usage[it.orig] || 0) : 0;
+      h += '<div class="li"><input type="text" value="' + esc(it.name) + '"' + (lock ? ' readonly' : '') +
+        ' oninput="LISTS[\'' + k + '\'][' + i + '].name=this.value">' +
+        '<span class="use">' + (it.orig ? n + ' used' : 'new') + '</span>' +
+        '<button class="ic" onclick="mv(' + i + ',-1)">&#9650;</button><button class="ic" onclick="mv(' + i + ',1)">&#9660;</button>' +
+        (lock ? '<span class="lock" title="Required by the system">&#128274;</span>'
+              : '<button class="ic del' + (it.sure ? ' sure' : '') + '" onclick="del(' + i + ')">' + (it.sure ? 'Sure?' : '&#10005;') + '</button>') +
+        '</div>';
+    });
+    $('list').innerHTML = h || '<div class="hint">No values yet.</div>';
+    renderChips();
+  }
+  function mv(i, d) {
+    const a = LISTS[cur], j = i + d;
+    if (j < 0 || j >= a.length) return;
+    const t = a[i]; a[i] = a[j]; a[j] = t; renderList();
+  }
+  function del(i) {
+    const it = LISTS[cur][i], n = it.orig ? ((D.usage[cur] || {})[it.orig] || 0) : 0;
+    if (n > 0 && !it.sure) {
+      it.sure = true; renderList();
+      toast('"' + it.orig + '" is used in ' + n + ' enquiries. They will keep this value. Click Sure? to delete anyway.', 'warn');
+      return;
+    }
+    LISTS[cur].splice(i, 1); hideToast(); renderList();
+  }
+  function addVal() {
+    const v = $('newVal').value.replace(/\s+/g, ' ').trim();
+    if (!v) return;
+    if (LISTS[cur].some(x => x.name.trim().toLowerCase() === v.toLowerCase())) { toast('"' + v + '" already exists in this list.', 'err'); return; }
+    LISTS[cur].push({ orig: '', name: v, sure: false });
+    $('newVal').value = ''; hideToast(); renderList();
+  }
+  $('newVal').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addVal(); } });
+
+  function saveDd(btn) {
+    const p = {};
+    KEYS.forEach(k => { p[k] = LISTS[k].map(x => ({ orig: x.orig, name: x.name })); });
+    run(btn, 'Saving dropdown lists...', 'saveDropdowns', [p], r => {
+      load(true);
+      return 'Dropdown lists saved.' + (r && r.renamedCells ? ' ' + r.renamedCells + ' existing cell(s) updated to the new names.' : '');
+    });
+  }
+
+  /* ---------- status rules + bill upload ---------- */
+  function saveGeneral(btn) {
+    const adminOnly = Array.prototype.map.call($('adminSt').querySelectorAll('input:checked'), x => x.value);
+    const s = { wonVerification: $('wv').checked, resetVerificationOnReopen: $('wvReset').checked, adminOnlyStatuses: adminOnly,
+                billFolderName: $('folder').value, maxFileMB: $('maxmb').value, billSharing: $('share').value };
+    run(btn, 'Saving settings...', 'saveGeneralSettings', [s], r => {
+      D.settings = r;
+      return 'Settings saved. Won Verification is ' + (r.wonVerification ? 'ON' : 'OFF') + '.';
+    });
+  }
+
+  /* ---------- admins ---------- */
+  function saveAdm(btn) {
+    run(btn, 'Saving admins...', 'saveAdmins', [$('admins').value], list => {
+      D.admins = list; $('admins').value = list.join('\n');
+      return 'Admins saved: ' + (list.join(', ') || 'none (owner only)');
+    });
+  }
+
+  /* ---------- web app & security ---------- */
+  function saveWeb(btn)   { run(btn, 'Testing connection and saving URL...', 'saveWebAppUrlValue', [$('webUrl').value], t => t); }
+  function testWeb(btn)   { run(btn, 'Testing connection...', 'testWebApp', [], t => t); }
+  function doProtect(btn) { run(btn, 'Applying sheet protection...', 'reapplyProtection', [], t => t); }
+  function doRefresh(btn) { run(btn, 'Refreshing all sheets. This can take a few seconds...', 'refreshFromSettings', [], t => t); }
+  function doKey(btn)     { run(btn, 'Generating a new API key...', 'regenerateApiKey', [], t => t); }
+
+  load();
+</script>
+</body>
+</html>
