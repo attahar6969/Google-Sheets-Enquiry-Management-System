@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <?!= include('Styles') ?>
+</head>
+<body>
+<form id="f" novalidate>
+  <div class="grid">
+    <div class="full">
+      <label>Enquiry ID <span class="req">*</span></label>
+      <input id="enqId" list="enqList" placeholder="Type or pick e.g. ENQ-001" autocomplete="off">
+      <datalist id="enqList"></datalist>
+    </div>
+    <div><label>Customer Name</label><div class="ro" id="custName">-</div></div>
+    <div><label>Phone No.</label><div class="ro" id="custPhone">-</div></div>
+    <div class="full"><label>Quotation Link</label><div class="ro" id="custLink">-</div></div>
+
+    <div><label>Category <span class="req">*</span></label><select id="category"></select></div>
+    <div><label>Representative <span class="req">*</span></label><select id="rep"></select></div>
+
+    <div><label>Follow-Up Date</label><input type="date" id="followUp"></div>
+    <div><label>Expected Closing Date</label><input type="date" id="expected"></div>
+
+    <div class="full">
+      <label>Status <span class="req">*</span></label><select id="status"></select>
+      <div class="hint">Selecting Won asks for Bill Details first.</div>
+    </div>
+
+    <div class="full"><label>Latest Remark</label><textarea id="remark" rows="3" style="text-transform:uppercase"></textarea></div>
+  </div>
+  <div id="msg" class="msg"></div>
+  <div class="actions">
+    <button type="button" class="btn btn-light" onclick="google.script.host.close()">Cancel</button>
+    <button type="submit" class="btn btn-primary" id="submitBtn">Submit</button>
+  </div>
+</form>
+
+<!-- Bill Details pop-up (opens when Won is selected) -->
+<div class="overlay" id="billOverlay">
+  <div class="panel">
+    <h3>Bill Details</h3>
+    <div class="grid">
+      <div class="full"><label>Enquiry ID</label><input id="bEnq" readonly></div>
+      <div><label>Bill No. <span class="req">*</span></label><input id="bNo"></div>
+      <div><label>Bill Amount (₹) <span class="req">*</span></label><input id="bAmt" type="number" min="0" step="0.01"></div>
+      <div class="full"><label>Bill Image</label>
+        <input id="bFile" type="file" accept="image/*,application/pdf">
+        <div class="hint">Image or PDF. Saved to the Drive bills folder.</div></div>
+    </div>
+    <div id="bMsg" class="msg"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-light" onclick="cancelBill()">Cancel</button>
+      <button type="button" class="btn btn-primary" id="bBtn" onclick="submitBill()">Submit Bill Details</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+let RID = uid(), BRID = uid();
+['input', 'change'].forEach(ev => {
+  $('f').addEventListener(ev, () => { RID = uid(); });
+  $('billOverlay').addEventListener(ev, () => { BRID = uid(); });
+});
+  let ENQ = {}, cur = null, prevStatus = '', WV = true, MAXMB = 5;
+  let REQ = { fu: { category: true, rep: true, followUp: true, expected: false, remark: false },
+              bill: { billNo: true, billAmount: true, billImage: false } };
+
+  // Puts or removes the red * next to a field label
+  function star(id, on) {
+    const el = $(id);
+    if (!el) return;
+    const lab = el.parentElement.querySelector('label');
+    if (!lab) return;
+    const old = lab.querySelector('.req');
+    if (old) old.remove();
+    if (on) { const s = document.createElement('span'); s.className = 'req'; s.textContent = ' *'; lab.appendChild(s); }
+  }
+  function applyRequired() {
+    ['category', 'rep', 'followUp', 'expected', 'remark'].forEach(k => star(k, !!REQ.fu[k]));
+    star('bNo', !!REQ.bill.billNo); star('bAmt', !!REQ.bill.billAmount); star('bFile', !!REQ.bill.billImage);
+  }
+
+  function fill(sel, arr) {
+    sel.innerHTML = '';
+    const o = document.createElement('option'); o.value = ''; o.textContent = '-- Select --'; sel.appendChild(o);
+    arr.forEach(v => { const x = document.createElement('option'); x.value = v; x.textContent = v; sel.appendChild(x); });
+  }
+  function show(id, text, ok) { const m = $(id); m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err'); }
+  function hide(id) { $(id).className = 'msg'; }
+
+  google.script.run.withSuccessHandler(init).withFailureHandler(e => show('msg', e.message, false)).getFollowUpData();
+
+  function init(d) {
+    WV = d.wonVerification !== false; MAXMB = d.maxFileMB || 5;
+    if (d.required) { REQ = d.required; }
+    applyRequired();
+    d.enquiries.forEach(e => {
+      ENQ[e.id.toUpperCase()] = e;
+      const o = document.createElement('option'); o.value = e.id; o.label = e.customer; o.textContent = e.customer;
+      $('enqList').appendChild(o);
+    });
+    fill($('category'), d.categories); fill($('rep'), d.reps); fill($('status'), d.statuses);
+  }
+
+  $('enqId').addEventListener('input', function () {
+    const e = ENQ[$('enqId').value.trim().toUpperCase()];
+    cur = e || null;
+    $('custName').textContent = e ? e.customer : '-';
+    $('custPhone').textContent = e ? e.phone : '-';
+    const box = $('custLink'); box.innerHTML = '';
+    if (e && e.link) {
+      const a = document.createElement('a'); a.href = e.link; a.target = '_blank'; a.textContent = 'Open quotation';
+      box.appendChild(a);
+    } else { box.textContent = '-'; }
+    if (e) {
+      $('category').value = e.category; $('rep').value = e.rep; $('status').value = e.status;
+      $('expected').value = e.expected || '';
+      $('remark').value = e.remark || '';
+      prevStatus = e.status;
+    }
+  });
+
+  $('status').addEventListener('change', function () {
+    if ($('status').value.trim().toLowerCase() !== 'won') { prevStatus = $('status').value; return; }
+    if (!cur) { $('status').value = prevStatus; show('msg', 'Select an Enquiry ID first.', false); return; }
+    if (WV && !cur.verified) {                       // bill not yet submitted -> open Bill Details pop-up
+      $('bEnq').value = cur.id; $('bNo').value = ''; $('bAmt').value = ''; $('bFile').value = '';
+      hide('bMsg'); $('billOverlay').classList.add('show');
+    } else { prevStatus = 'Won'; }
+  });
+
+  function cancelBill() {
+    $('billOverlay').classList.remove('show');
+    $('status').value = prevStatus;
+  }
+
+  function readB64(file) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result).split(',')[1]);
+      r.onerror = () => rej(new Error('Could not read file.'));
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function submitBill() {
+    const file = $('bFile').files[0];
+    const B = REQ.bill;
+    if (B.billNo && !$('bNo').value.trim()) { show('bMsg', 'Bill No. is required.', false); return; }
+    if (B.billAmount && $('bAmt').value === '') { show('bMsg', 'Bill Amount is required.', false); return; }
+    if (B.billImage && !file) { show('bMsg', 'Bill Image is required.', false); return; }
+    if (!$('bNo').value.trim() && $('bAmt').value === '' && !file) { show('bMsg', 'Enter at least a Bill No., Bill Amount or Bill Image.', false); return; }
+    if (file && file.size > MAXMB * 1024 * 1024) { show('bMsg', 'File is larger than ' + MAXMB + ' MB.', false); return; }
+    $('bBtn').disabled = true; show('bMsg', 'Saving...', true);
+    try {
+      const b64 = file ? await readB64(file) : '';
+      google.script.run
+        .withSuccessHandler(() => {
+          cur.verified = true; prevStatus = 'Won';
+          $('bBtn').disabled = false;
+          $('billOverlay').classList.remove('show');
+          show('msg', 'Bill saved. Won Verification: Verified. Now click Submit to save the follow-up.', true);
+        })
+        .withFailureHandler(e => { $('bBtn').disabled = false; show('bMsg', e.message, false); })
+        .saveBill({ enquiryId: cur.id, billNo: $('bNo').value, billAmount: $('bAmt').value,
+                    fileName: file ? file.name : '', mimeType: file ? (file.type || 'application/octet-stream') : '', base64: b64, requestId: BRID });
+    } catch (e) { $('bBtn').disabled = false; show('bMsg', e.message, false); }
+  }
+
+  $('f').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    if (!cur) { show('msg', 'Please select a valid Enquiry ID.', false); return; }
+    const status = $('status').value;
+    if (!status) { show('msg', 'Status is required.', false); return; }
+    const F = REQ.fu;
+    const names = { category: 'Category', rep: 'Representative', expected: 'Expected Closing Date', remark: 'Latest Remark' };
+    for (const k of Object.keys(names)) {
+      if (F[k] && !String($(k).value || '').trim()) { show('msg', names[k] + ' is required.', false); return; }
+    }
+    const closed = ['won', 'lost'].indexOf(status.trim().toLowerCase()) > -1;
+    if (F.followUp && !closed && !$('followUp').value) { show('msg', 'Follow-Up Date is required unless status is Won / Lost.', false); return; }
+    $('submitBtn').disabled = true; show('msg', 'Saving...', true);
+    google.script.run
+      .withSuccessHandler(() => { show('msg', 'Follow-up saved. Closing...', true); setTimeout(() => google.script.host.close(), 1000); })
+      .withFailureHandler(e => { $('submitBtn').disabled = false; show('msg', e.message, false); })
+      .saveFollowUp({ enquiryId: cur.id, category: $('category').value, followUp: $('followUp').value,
+                      rep: $('rep').value, status: status, remark: $('remark').value, expected: $('expected').value, requestId: RID });
+  });
+</script>
+</body>
+</html>
