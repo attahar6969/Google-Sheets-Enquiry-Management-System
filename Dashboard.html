@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<script src="https://www.gstatic.com/charts/loader.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Roboto, Arial, sans-serif; font-size: 13px; color: #202124; margin: 0; padding: 0 4px 16px; background: #fff; }
+  .bar { background: #f1f3f9; border-radius: 8px; padding: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .f { display: flex; flex-direction: column; gap: 3px; }
+  .f label { font-size: 11px; color: #5f6368; }
+  .f input, .f select { padding: 6px 8px; border: 1px solid #c4c7c5; border-radius: 6px; font-size: 13px; background: #fff; min-width: 120px; }
+  .sp { flex: 1; }
+  .btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #1a2a4a; }
+  .btn-d { background: #1a2a4a; color: #fff; }
+  .btn-l { background: #fff; color: #1a2a4a; }
+  #msg { margin: 8px 0; color: #b3261e; display: none; }
+  #busy { margin: 8px 0; color: #5f6368; display: none; }
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 12px 0; }
+  .kpi { border: 1px solid #dadce0; border-left: 4px solid #1a2a4a; border-radius: 6px; padding: 10px 12px; background: #fff; }
+  .kpi .l { font-size: 11.5px; color: #5f6368; }
+  .kpi .v { font-size: 22px; font-weight: 700; margin-top: 4px; }
+  .c-green { border-left-color: #1e8e3e; } .c-green .v { color: #1e8e3e; }
+  .c-red { border-left-color: #c5392b; } .c-red .v { color: #c5392b; }
+  .c-blue { border-left-color: #1a5fb4; } .c-blue .v { color: #1a5fb4; }
+  .c-orange { border-left-color: #e67e22; } .c-orange .v { color: #e67e22; }
+  .c-grey { border-left-color: #80868b; } .c-grey .v { color: #5f6368; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .card { border: 1px solid #dadce0; border-radius: 6px; padding: 10px 12px; background: #fff; margin-bottom: 12px; }
+  .card h4 { margin: 0 0 6px; font-size: 14px; }
+  .ch { height: 260px; }
+  h3 { margin: 18px 0 8px; font-size: 14px; color: #1a2a4a; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #1a2a4a; color: #fff; text-align: left; padding: 7px 8px; font-size: 12px; white-space: nowrap; }
+  td { padding: 6px 8px; border-bottom: 1px solid #eceff1; font-size: 12.5px; }
+  td.r, th.r { text-align: right; }
+  .wrap { overflow-x: auto; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: 700; color: #fff; background: #5f6368; }
+  .p-won { background: #1e8e3e; } .p-lost { background: #c5392b; } .p-closed { background: #80868b; }
+  .p-new { background: #1a5fb4; } .p-negotiation { background: #e67e22; }
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .row select { padding: 5px 8px; border: 1px solid #c4c7c5; border-radius: 6px; }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .dow { text-align: center; font-weight: 700; font-size: 11.5px; color: #5f6368; padding: 4px 0; }
+  .cell { min-height: 74px; border: 1px solid #e0e3e7; border-radius: 6px; padding: 4px 5px; cursor: pointer; background: #fff; }
+  .cell.empty { background: #fafafa; border-color: #f1f3f4; cursor: default; }
+  .cell:hover:not(.empty) { border-color: #1a5fb4; }
+  .cell.today { border: 2px solid #1a5fb4; }
+  .cell.sel { background: #e8f0fe; }
+  .dn { font-weight: 700; font-size: 12px; }
+  .b { display: inline-block; font-size: 10.5px; padding: 1px 5px; border-radius: 8px; margin: 1px 2px 0 0; color: #fff; }
+  .b-e { background: #1a5fb4; } .b-f { background: #e67e22; } .b-w { background: #1e8e3e; }
+  .amt { font-size: 10.5px; color: #1e8e3e; font-weight: 700; }
+  .legend span { margin-right: 12px; font-size: 12px; }
+  .note { font-size: 11.5px; color: #5f6368; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="f"><label>From date</label><input type="date" id="from"></div>
+  <div class="f"><label>To date</label><input type="date" id="to"></div>
+  <div class="f"><label>Enquiry month</label><input type="month" id="month"></div>
+  <div class="f"><label>Representative</label><select id="rep"></select></div>
+  <div class="f"><label>Status</label><select id="status"></select></div>
+  <div class="f"><label>Category</label><select id="category"></select></div>
+  <div class="f"><label>Source</label><select id="source"></select></div>
+  <button class="btn btn-d" onclick="load()">Apply filters</button>
+  <button class="btn btn-l" onclick="clearF()">Clear</button>
+  <div class="sp"></div>
+  <button class="btn btn-l" onclick="openSheet()">Open dashboard sheet</button>
+  <button class="btn btn-d" onclick="refreshSys()">Refresh system</button>
+</div>
+<div id="msg"></div>
+<div id="busy">Loading...</div>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="grid2">
+  <div class="card"><h4>Monthly enquiries</h4><div class="ch" id="chMonthEnq"></div></div>
+  <div class="card"><h4>Monthly won sales (₹)</h4><div class="ch" id="chMonthSales"></div></div>
+  <div class="card"><h4>Status breakdown</h4><div class="ch" id="chStatus"></div></div>
+  <div class="card"><h4>Enquiries by source</h4><div class="ch" id="chSource"></div></div>
+</div>
+
+<h3>Representative-wise sales by month</h3>
+<div class="card">
+  <div class="row">
+    <label>Show:</label>
+    <select id="metric" onchange="renderRepMonth(); drawRepMonth();">
+      <option value="sales">Won sales (₹)</option>
+      <option value="won">Won deals (count)</option>
+      <option value="enq">Enquiries (count)</option>
+      <option value="quote">Quotation value (₹)</option>
+    </select>
+  </div>
+  <div class="ch" id="chRepMonth" style="height:300px"></div>
+  <div class="wrap" style="margin-top:10px"><table id="tblRepMonth"></table></div>
+  <div class="note">Won sales = Bill Amount of Won enquiries (Quotation Amount if no bill amount), counted in the month the enquiry was marked Won (from Follow-Up History; falls back to the enquiry month).</div>
+</div>
+
+<h3>Representative summary</h3>
+<div class="card wrap"><table id="tblRep"></table></div>
+
+<h3>Sales calendar (date-wise)</h3>
+<div class="card">
+  <div class="row">
+    <button class="btn btn-l" onclick="calMove(-1)">◀</button>
+    <b id="calTitle" style="min-width:140px;text-align:center"></b>
+    <button class="btn btn-l" onclick="calMove(1)">▶</button>
+    <button class="btn btn-l" onclick="calToday()">Today</button>
+    <span id="calSum" style="margin-left:12px;color:#5f6368"></span>
+  </div>
+  <div class="legend"><span><span class="b b-e">Enq</span> enquiries received</span><span><span class="b b-f">Due</span> follow-ups due</span><span><span class="b b-w">Won</span> deals won (₹ sales)</span></div>
+  <div class="cal" id="cal" style="margin-top:8px"></div>
+  <div id="dayDetail" style="margin-top:12px"></div>
+</div>
+
+<h3>Recent enquiries</h3>
+<div class="card wrap"><table id="tblRecent"></table></div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const money = n => '₹' + Math.round(n || 0).toLocaleString('en-IN');
+  const pct = x => ((x || 0) * 100).toFixed(1) + '%';
+  const pad = n => String(n).padStart(2, '0');
+  const mlabel = m => { const p = m.split('-'); return MN[+p[1] - 1] + ' ' + p[0].slice(2); };
+  const dlabel = k => { if (!k) return ''; const p = k.split('-'); return p[2] + '-' + MN[+p[1] - 1] + '-' + p[0]; };
+
+  let DATA = null, chartsReady = false, optsDone = false, selDay = '';
+  const NOW = new Date();
+  let calY = NOW.getFullYear(), calM = NOW.getMonth();
+
+  google.charts.load('current', { packages: ['corechart'] });
+  google.charts.setOnLoadCallback(() => { chartsReady = true; if (DATA) drawCharts(); });
+  window.addEventListener('resize', () => { if (DATA && chartsReady) drawCharts(); });
+
+  function filters() {
+    return { from: $('from').value, to: $('to').value, month: $('month').value, rep: $('rep').value,
+             status: $('status').value, category: $('category').value, source: $('source').value };
+  }
+  function showErr(e) { $('busy').style.display = 'none'; const m = $('msg'); m.textContent = e.message || String(e); m.style.display = 'block'; }
+  function load() {
+    $('msg').style.display = 'none'; $('busy').style.display = 'block';
+    google.script.run.withSuccessHandler(d => {
+      DATA = d; $('busy').style.display = 'none';
+      if (!optsDone) { fillOpts(d.opts); optsDone = true; }
+      render();
+    }).withFailureHandler(showErr).getDashboardData(filters());
+  }
+  function fillOpts(o) {
+    const f = (id, arr) => { const s = $(id); s.innerHTML = '<option value="">All</option>' + arr.map(v => '<option>' + esc(v) + '</option>').join(''); };
+    f('rep', o.reps); f('status', o.statuses); f('category', o.categories); f('source', o.sources);
+  }
+  function clearF() { ['from','to','month','rep','status','category','source'].forEach(i => $(i).value = ''); load(); }
+  function openSheet() { google.script.run.withSuccessHandler(() => google.script.host.close()).withFailureHandler(showErr).openDashboardSheet(); }
+  function refreshSys() {
+    $('busy').textContent = 'Refreshing all sheets...'; $('busy').style.display = 'block';
+    google.script.run.withSuccessHandler(() => { $('busy').textContent = 'Loading...'; load(); }).withFailureHandler(showErr).refreshSystem();
+  }
+
+  function render() { renderKpi(); renderRepSummary(); renderRepMonth(); renderCal(); renderRecent(); if (chartsReady) drawCharts(); }
+
+  function renderKpi() {
+    const k = DATA.kpi;
+    const cards = [
+      ['Total enquiries', k.total, 'n', ''], ['Open', k.open, 'n', 'c-blue'], ['Won', k.won, 'n', 'c-green'],
+      ['Lost', k.lost, 'n', 'c-red'], ['Closed', k.closed, 'n', 'c-grey'],
+      ['Conversion % (Won ÷ all)', k.conv, 'p', ''], ['Win rate % (Won ÷ Won+Lost+Closed)', k.winRate, 'p', 'c-green'],
+      ['Total quotation value', k.quote, 'm', ''], ['Won sales', k.sales, 'm', 'c-green'], ['Pipeline value (open)', k.pipeline, 'm', 'c-orange']
+    ];
+    $('kpis').innerHTML = cards.map(c => '<div class="kpi ' + c[3] + '"><div class="l">' + c[0] + '</div><div class="v">' +
+      (c[2] === 'm' ? money(c[1]) : c[2] === 'p' ? pct(c[1]) : c[1]) + '</div></div>').join('');
+  }
+
+  function pill(s) { return '<span class="pill p-' + esc(String(s).toLowerCase().replace(/\W+/g, '')) + '">' + esc(s) + '</span>'; }
+
+  function renderRepSummary() {
+    const h = ['Representative','Enquiries','Open','Won','Lost','Closed','Quotation value','Won sales','Win rate'];
+    let html = '<tr>' + h.map((x, i) => '<th class="' + (i ? 'r' : '') + '">' + x + '</th>').join('') + '</tr>';
+    const t = { enq: 0, open: 0, won: 0, lost: 0, closed: 0, quote: 0, sales: 0 };
+    DATA.reps.forEach(r => {
+      Object.keys(t).forEach(k => t[k] += r[k]);
+      const fin = r.won + r.lost + r.closed;
+      html += '<tr><td>' + esc(r.name) + '</td><td class="r">' + r.enq + '</td><td class="r">' + r.open + '</td><td class="r">' + r.won +
+        '</td><td class="r">' + r.lost + '</td><td class="r">' + r.closed + '</td><td class="r">' + money(r.quote) +
+        '</td><td class="r"><b>' + money(r.sales) + '</b></td><td class="r">' + pct(fin ? r.won / fin : 0) + '</td></tr>';
+    });
+    const fin = t.won + t.lost + t.closed;
+    html += '<tr style="font-weight:700;background:#f1f3f9"><td>Total</td><td class="r">' + t.enq + '</td><td class="r">' + t.open + '</td><td class="r">' + t.won +
+      '</td><td class="r">' + t.lost + '</td><td class="r">' + t.closed + '</td><td class="r">' + money(t.quote) + '</td><td class="r">' + money(t.sales) +
+      '</td><td class="r">' + pct(fin ? t.won / fin : 0) + '</td></tr>';
+    $('tblRep').innerHTML = html;
+  }
+
+  function cellVal(r, m) { const c = (DATA.repMonth[r] || {})[m]; return c ? c[$('metric').value] : 0; }
+  function fmtMetric(v) { const mt = $('metric').value; return (mt === 'sales' || mt === 'quote') ? money(v) : String(v); }
+
+  function renderRepMonth() {
+    const reps = DATA.reps.map(r => r.name), months = DATA.months;
+    if (!reps.length || !months.length) { $('tblRepMonth').innerHTML = '<tr><td>No data for the selected filters.</td></tr>'; return; }
+    let max = 0;
+    reps.forEach(r => months.forEach(m => { max = Math.max(max, cellVal(r, m)); }));
+    let html = '<tr><th>Representative</th>' + months.map(m => '<th class="r">' + mlabel(m) + '</th>').join('') + '<th class="r">Total</th></tr>';
+    const colT = months.map(() => 0); let grand = 0;
+    reps.forEach(r => {
+      let rt = 0;
+      html += '<tr><td>' + esc(r) + '</td>';
+      months.forEach((m, i) => {
+        const v = cellVal(r, m); rt += v; colT[i] += v;
+        const a = max ? (v / max) * 0.45 : 0;
+        html += '<td class="r" style="background:rgba(30,142,62,' + a.toFixed(2) + ')">' + (v ? fmtMetric(v) : '-') + '</td>';
+      });
+      grand += rt;
+      html += '<td class="r"><b>' + fmtMetric(rt) + '</b></td></tr>';
+    });
+    html += '<tr style="font-weight:700;background:#f1f3f9"><td>Total</td>' + colT.map(v => '<td class="r">' + fmtMetric(v) + '</td>').join('') + '<td class="r">' + fmtMetric(grand) + '</td></tr>';
+    $('tblRepMonth').innerHTML = html;
+  }
+
+  /* ---------- charts ---------- */
+  function mk(el) { return new google.visualization.ColumnChart($(el)); }
+  const base = { legend: { position: 'none' }, chartArea: { left: 60, top: 16, width: '85%', height: '70%' }, backgroundColor: 'transparent' };
+  function drawCharts() {
+    const mo = DATA.monthly;
+    const t1 = new google.visualization.DataTable(); t1.addColumn('string', 'Month'); t1.addColumn('number', 'Enquiries');
+    mo.forEach(x => t1.addRow([mlabel(x.m), x.enq]));
+    mk('chMonthEnq').draw(t1, Object.assign({}, base, { colors: ['#1a5fb4'] }));
+
+    const t2 = new google.visualization.DataTable(); t2.addColumn('string', 'Month'); t2.addColumn('number', 'Won sales');
+    mo.forEach(x => t2.addRow([mlabel(x.m), x.sales]));
+    mk('chMonthSales').draw(t2, Object.assign({}, base, { colors: ['#1e8e3e'], vAxis: { format: 'short' } }));
+
+    const colors = { won: '#1e8e3e', lost: '#c5392b', closed: '#9aa0a6', new: '#4285f4', negotiation: '#e67e22' };
+    const t3 = new google.visualization.DataTable(); t3.addColumn('string', 'Status'); t3.addColumn('number', 'Count');
+    DATA.statusCounts.forEach(x => t3.addRow([x[0], x[1]]));
+    new google.visualization.PieChart($('chStatus')).draw(t3, { pieHole: 0.45, legend: { position: 'right' }, chartArea: { left: 10, top: 10, width: '95%', height: '90%' },
+      slices: DATA.statusCounts.map(x => ({ color: colors[String(x[0]).toLowerCase()] })).map(s => s.color ? s : {}) });
+
+    const t4 = new google.visualization.DataTable(); t4.addColumn('string', 'Source'); t4.addColumn('number', 'Enquiries');
+    DATA.sourceCounts.forEach(x => t4.addRow([x[0], x[1]]));
+    new google.visualization.BarChart($('chSource')).draw(t4, { legend: { position: 'none' }, colors: ['#1a5fb4'], chartArea: { left: 110, top: 10, width: '80%', height: '80%' } });
+
+    drawRepMonth();
+  }
+  function drawRepMonth() {
+    if (!chartsReady || !DATA) return;
+    const reps = DATA.reps.map(r => r.name), months = DATA.months;
+    const el = $('chRepMonth');
+    if (!reps.length || !months.length) { el.innerHTML = ''; return; }
+    const t = new google.visualization.DataTable(); t.addColumn('string', 'Month');
+    reps.forEach(r => t.addColumn('number', r));
+    months.forEach(m => t.addRow([mlabel(m)].concat(reps.map(r => cellVal(r, m)))));
+    new google.visualization.ColumnChart(el).draw(t, { isStacked: true, legend: { position: 'right' }, vAxis: { format: 'short' },
+      chartArea: { left: 70, top: 16, width: '75%', height: '75%' } });
+  }
+
+  /* ---------- calendar ---------- */
+  function calMove(d) { calM += d; if (calM < 0) { calM = 11; calY--; } if (calM > 11) { calM = 0; calY++; } selDay = ''; renderCal(); }
+  function calToday() { calY = NOW.getFullYear(); calM = NOW.getMonth(); selDay = ''; renderCal(); }
+  function renderCal() {
+    if (!DATA) return;
+    $('calTitle').textContent = MN[calM] + ' ' + calY;
+    const first = new Date(calY, calM, 1), dim = new Date(calY, calM + 1, 0).getDate();
+    const lead = (first.getDay() + 6) % 7;
+    const todayKey = NOW.getFullYear() + '-' + pad(NOW.getMonth() + 1) + '-' + pad(NOW.getDate());
+    let html = DOW.map(d => '<div class="dow">' + d + '</div>').join('');
+    for (let i = 0; i < lead; i++) html += '<div class="cell empty"></div>';
+    let se = 0, sw = 0, sa = 0, sf = 0;
+    for (let d = 1; d <= dim; d++) {
+      const key = calY + '-' + pad(calM + 1) + '-' + pad(d);
+      const c = DATA.cal[key];
+      let inner = '<div class="dn">' + d + '</div>';
+      if (c) {
+        se += c.enq; sw += c.won; sa += c.amt; sf += c.fup;
+        if (c.enq) inner += '<span class="b b-e">Enq ' + c.enq + '</span>';
+        if (c.fup) inner += '<span class="b b-f">Due ' + c.fup + '</span>';
+        if (c.won) inner += '<span class="b b-w">Won ' + c.won + '</span><div class="amt">' + money(c.amt) + '</div>';
+      }
+      html += '<div class="cell' + (key === todayKey ? ' today' : '') + (key === selDay ? ' sel' : '') + '" onclick="showDay(\'' + key + '\')">' + inner + '</div>';
+    }
+    $('cal').innerHTML = html;
+    $('calSum').textContent = 'This month: ' + se + ' enquiries, ' + sf + ' follow-ups due, ' + sw + ' won (' + money(sa) + ')';
+    showDay(selDay, true);
+  }
+  function showDay(key, keep) {
+    if (!keep) { selDay = key; renderCalSel(); }
+    const box = $('dayDetail');
+    if (!key) { box.innerHTML = '<div class="note">Click a date to see its details.</div>'; return; }
+    const items = (DATA.days[key] || []);
+    if (!items.length) { box.innerHTML = '<div class="note">' + dlabel(key) + ': nothing recorded.</div>'; return; }
+    let html = '<b>' + dlabel(key) + '</b><div class="wrap"><table><tr><th>Type</th><th>Enquiry ID</th><th>Customer</th><th>Representative</th><th>Status</th><th class="r">Amount</th></tr>';
+    items.forEach(i => { html += '<tr><td>' + esc(i.t) + '</td><td>' + esc(i.id) + '</td><td>' + esc(i.cust) + '</td><td>' + esc(i.rep) + '</td><td>' + pill(i.status) + '</td><td class="r">' + money(i.amt) + '</td></tr>'; });
+    box.innerHTML = html + '</table></div>';
+  }
+  function renderCalSel() { document.querySelectorAll('.cell').forEach(c => c.classList.remove('sel')); renderCal2(); }
+  function renderCal2() {
+    document.querySelectorAll('.cell:not(.empty)').forEach(c => {
+      const m = (c.getAttribute('onclick') || '').match(/'(\d{4}-\d{2}-\d{2})'/);
+      if (m && m[1] === selDay) c.classList.add('sel');
+    });
+  }
+
+  function renderRecent() {
+    const h = ['Enquiry ID','Date','Customer','Representative','Status','Quotation','Follow-up'];
+    let html = '<tr>' + h.map((x, i) => '<th class="' + (i === 5 ? 'r' : '') + '">' + x + '</th>').join('') + '</tr>';
+    DATA.recent.forEach(r => { html += '<tr><td>' + esc(r.id) + '</td><td>' + dlabel(r.date) + '</td><td>' + esc(r.cust) + '</td><td>' + esc(r.rep) + '</td><td>' + pill(r.status) + '</td><td class="r">' + money(r.quote) + '</td><td>' + dlabel(r.fup) + '</td></tr>'; });
+    $('tblRecent').innerHTML = html;
+  }
+
+  load();
+</script>
+</body>
+</html>
