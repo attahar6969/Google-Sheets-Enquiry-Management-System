@@ -1,4 +1,4 @@
-# Google Sheets Enquiry Management System
+# Google Sheets Business enquiry tracking and Sales Management system
 
 A business enquiry tracking and sales management system built using **Google Apps Script and Google Sheets**. It helps businesses manage customer enquiries, track follow-ups, upload bills, monitor sales performance, and automate routine sales operations.
 
